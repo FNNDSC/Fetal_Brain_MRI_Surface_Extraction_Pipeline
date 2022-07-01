@@ -1,0 +1,63 @@
+# input: whole fetal brain segmentation between 22-35GA (.nii OR .nii.gz)
+# output: hemispheres inner CP surface (.obj)
+
+name: "Fetal Brain Surface Extraction v1.0.0"
+authors: "Jennings Zhang <Jennings.Zhang@childrens.harvard.edu>"
+description: "Extract hemisphere inner CP surface (MNI .obj) from NIFTI whole fetal brain MRI segmentation using CIVET marching-cubes"
+category: "MRI"
+locked: false
+plugin_tree:
+- title: "nii2mnc"
+  plugin: pl-nii2mnc-u8 v1.0.1
+  previous: null
+
+- title: "Left WM mask"
+  plugin: pl-nums2mask v1.0.1
+  previous: "nii2mnc"
+  plugin_parameter_defaults:
+    value: 161
+- title: "Rename left mask files"
+  plugin: pl-bulk-rename v0.1.2
+  previous: "Left WM mask"
+  plugin_parameter_defaults:
+    filter: '.*\.mnc'
+    expression: '^(.*)(\.mnc)$'
+    replacement: '$1.left.mnc'
+- title: "Right WM mask"
+  plugin: pl-nums2mask v1.0.1
+  previous: "nii2mnc"
+  plugin_parameter_defaults:
+    value: 160
+- title: "Rename right mask files"
+  plugin: pl-bulk-rename v0.1.2
+  previous: "Right WM mask"
+  plugin_parameter_defaults:
+    filter: '.*\.mnc'
+    expression: '^(.*)(\.mnc)$'
+    replacement: '$1.right.mnc'
+
+- title: "Marching-cubes surface extraction (left)"
+  plugin: pl-fetal-cp-surface-extract v1.1.0
+  previous: "Rename left mask files"
+  plugin_parameter_defaults:
+    keep_mask: true
+- title: "Marching-cubes surface extraction (right)"
+  plugin: pl-fetal-cp-surface-extract v1.1.0
+  previous: "Rename right mask files"
+  plugin_parameter_defaults:
+    keep_mask: true
+
+# sadly, we cannot use ts plugins to perform a join
+# so these pipings must be repeated for each branch
+- title: "Smoothness error (left)"
+  plugin: pl-smoothness-error v2.0.1
+  previous: "Marching-cubes surface extraction (left)"
+- title: "Distance error (left)"
+  plugin: pl-surfdisterr v1.2.0
+  previous: "Marching-cubes surface extraction (left)"
+- title: "Smoothness error (right)"
+  plugin: pl-smoothness-error v2.0.1
+  previous: "Marching-cubes surface extraction (right)"
+- title: "Distance error (left)"
+  plugin: pl-surfdisterr v1.2.0
+  previous: "Marching-cubes surface extraction (right)"
