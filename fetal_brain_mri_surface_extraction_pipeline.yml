@@ -15,7 +15,7 @@ plugin_tree:
   plugin: pl-nums2mask v1.0.1
   previous: "nii2mnc"
   plugin_parameter_defaults:
-    value: 161
+    value: 160
 - title: "Rename left mask files"
   plugin: pl-bulk-rename v0.1.2
   previous: "Left WM mask"
@@ -27,7 +27,7 @@ plugin_tree:
   plugin: pl-nums2mask v1.0.1
   previous: "nii2mnc"
   plugin_parameter_defaults:
-    value: 160
+    value: 161
 - title: "Rename right mask files"
   plugin: pl-bulk-rename v0.1.2
   previous: "Right WM mask"
