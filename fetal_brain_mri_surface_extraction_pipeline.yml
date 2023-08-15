@@ -1,63 +1,45 @@
 # input: whole fetal brain segmentation between 22-35GA (.nii OR .nii.gz)
 # output: hemispheres inner CP surface (.obj)
 
-name: "Fetal Brain Surface Extraction v1.0.0"
+name: "Fetal Brain Surface Extraction v1.1.0"
 authors: "Jennings Zhang <Jennings.Zhang@childrens.harvard.edu>"
-description: "Extract hemisphere inner CP surface (MNI .obj) from NIFTI whole fetal brain MRI segmentation using CIVET marching-cubes"
+description: "Extract cortical plate (CP) surface from fetal brain MRI segmentation. Input directory should contain segmentation labels for 1 or more subjects in NIFTI format, named SUBJECT_nuc_deep_subpalte_dilate.nii. Outputs include MNI .obj surfaces organized in subfolders for each subject and QC figures."
 category: "MRI"
 locked: false
 plugin_tree:
-- title: "nii2mnc"
-  plugin: pl-nii2mnc-u8 v1.0.1
+- title: "Unstack deeply nested input directory"
   previous: null
-
-- title: "Left WM mask"
-  plugin: pl-nums2mask v1.0.1
-  previous: "nii2mnc"
-  plugin_parameter_defaults:
-    value: 160
-- title: "Rename left mask files"
+  plugin: pl-unstack-folders v1.0.0
+- title: "Move *_nuc_deep_subplate_dilate.nii to subject directories"
+  previous: "Unstack deeply nested input directory"
   plugin: pl-bulk-rename v0.1.2
-  previous: "Left WM mask"
   plugin_parameter_defaults:
-    filter: '.*\.mnc'
-    expression: '^(.*)(\.mnc)$'
-    replacement: '$1.left.mnc'
-- title: "Right WM mask"
-  plugin: pl-nums2mask v1.0.1
-  previous: "nii2mnc"
+    filter: ".*_nuc_deep_subplate_dilate\\.nii"
+    expression: "(.*)_nuc_deep_subplate_dilate\\.nii"
+    replacement: "$1/labels.nii"
+- title: "Convert NIFTI to MINC"
+  previous: "Move *_nuc_deep_subplate_dilate.nii to subject directories"
+  plugin: pl-nii2mnc v1.1.0
   plugin_parameter_defaults:
-    value: 161
-- title: "Rename right mask files"
-  plugin: pl-bulk-rename v0.1.2
-  previous: "Right WM mask"
+    unsigned: true
+    byte: true
+- title: "Extract WM masks for left and right hemispheres"
+  previous: "Convert NIFTI to MINC"
+  plugin: pl-nums2mask v2.0.0
   plugin_parameter_defaults:
-    filter: '.*\.mnc'
-    expression: '^(.*)(\.mnc)$'
-    replacement: '$1.right.mnc'
-
-- title: "Marching-cubes surface extraction (left)"
-  plugin: pl-fetal-cp-surface-extract v1.1.0
-  previous: "Rename left mask files"
+    mask: "lh.wm.mnc:161,5 rh.wm.mnc:160,4"
+- title: "WM surface extraction (CIVET marching-cubes algorithm)"
+  previous: "Extract WM masks for left and right hemispheres"
+  plugin: pl-fetal-surface-extract v2.0.2
   plugin_parameter_defaults:
-    keep_mask: true
-- title: "Marching-cubes surface extraction (right)"
-  plugin: pl-fetal-cp-surface-extract v1.1.0
-  previous: "Rename right mask files"
+    target_smoothness: 0.13
+- title: "Take absolute value of distance error"
+  previous: "WM surface extraction (CIVET marching-cubes algorithm)"
+  plugin: pl-abs v1.0.1
   plugin_parameter_defaults:
-    keep_mask: true
-
-# sadly, we cannot use ts plugins to perform a join
-# so these pipings must be repeated for each branch
-- title: "Smoothness error (left)"
-  plugin: pl-smoothness-error v2.0.1
-  previous: "Marching-cubes surface extraction (left)"
-- title: "Distance error (left)"
-  plugin: pl-surfdisterr v1.2.0
-  previous: "Marching-cubes surface extraction (left)"
-- title: "Smoothness error (right)"
-  plugin: pl-smoothness-error v2.0.1
-  previous: "Marching-cubes surface extraction (right)"
-- title: "Distance error (left)"
-  plugin: pl-surfdisterr v1.2.0
-  previous: "Marching-cubes surface extraction (right)"
+    copy: true
+    input_files: .disterr.txt
+    output_suffix: abs.disterr.txt
+- title: "Create QC figures for WM surface extraction"
+  previous: "Take absolute value of distance error"
+  plugin: pl-surfigures v1.2.0
