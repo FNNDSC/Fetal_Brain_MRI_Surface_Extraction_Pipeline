@@ -33,7 +33,7 @@ rule masks:
 	input: "wm_mask", "innersp_mask"
 
 rule all:
-	input: "outersp_surface", "innersp_surface", "outersp_surface_figures"
+	input: "outersp_surface", "innersp_surface", "outersp_surface_figures", "innersp_surface_figures", "medial_cut_mask"
 
 # Preprocessing
 # --------------------------------------------------------------------------------
@@ -82,6 +82,7 @@ rule extract_outersp_surface:
 	input: "wm_mask"
 	output: directory("outersp_surface")
 	container: "docker://ghcr.io/fnndsc/pl-fetal-surface-extract:2.1.0"
+	threads: workflow.cores
 	shell:
 		"extract_cp -J {threads} --target-smoothness 0.13 {input} {output}"
 
@@ -117,8 +118,9 @@ rule fit_innersp_surface:
 	input: "_inputs_for_innersp_surface"
 	output: directory("innersp_surface")
 	container: "docker://ghcr.io/fnndsc/pl-gifit:0.1.0"
+	threads: workflow.cores
 	shell:
-		"gifit {input} {output}"
+		"gifit --threads {threads} {input} {output}"
 
 # Outer SP surface extraction QC figures
 # --------------------------------------------------------------------------------
@@ -132,10 +134,20 @@ rule abs_disterr:
 
 rule extract_outersp_surface_figures:
 	input: "_outersp_surface_with_abs"
-	output: directory("outersp_surface_figures")
+	output: report(directory("outersp_surface_figures"), patterns=["{name}.png"], category="Outer Subplate Surface Extraction QC")
 	container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"
 	shell:
 		"surfigures --range '.disterr.txt:-2.0:2.0,.disterr.abs.txt:0.0:2.0,.smtherr.txt:0.0:2.0' {input} {output}"
+
+# Medial cut surface mask registration to outer SP surface
+# --------------------------------------------------------------------------------
+
+rule medial_cut_mask:
+	input: "outersp_surface"
+	output: directory("medial_cut_mask")
+	container: "docker://ghcr.io/fnndsc/pl-bestsurfreg-surface-resample:1.0.0"
+	shell:
+		"bsrr -o '{{}}.medial_cut_mask.txt' {input} {output}"
 
 # Inner SP surface_fit QC figures
 # --------------------------------------------------------------------------------
@@ -165,9 +177,43 @@ rule join__innersp_smtherr_and_surfaces:
 				target = os.path.join(*(*parents, input_dir.name, rel))
 				output_file.symlink_to(target)
 
+rule invert_medial_cut_mask:
+	input: "medial_cut_mask"
+	output: directory("_medial_cut_mask_neg")
+	# container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"  # need to use vertstats_math and parallel
+	shell:
+		"sh -c 'yes 1 | head -n 40962 > /tmp/one.txt' && (cd {input} && find -type f -name '*.medial_cut_mask.txt') | parallel --bar 'mkdir -p {output}/{{//}} && vertstats_math -old_style_file /tmp/one.txt -sub {input}/{{}} {output}/{{.}}.keep.txt'"
+
+rule mask_innersp_data:
+	input: "_innersp_surface_and_smtherr", "_medial_cut_mask_neg"
+	output: directory("innersp_data_masked")
+	run:
+		import os, shutil
+		from pathlib import Path
+		import subprocess as sp
+		data_dir = Path(input[0])
+		masks_dir = Path(input[1])
+		output_dir = Path(output[0])
+
+		output_dir.mkdir()
+		subj_dirs = filter(lambda p: p.is_dir() and not p.name.startswith('.'), data_dir.glob('*'))
+		for subj_dir in subj_dirs:
+			output_subj_dir = output_dir / subj_dir.name
+			output_subj_dir.mkdir()
+			for data_file in subj_dir.glob('*'):
+				output_file = output_subj_dir / data_file.name
+				if data_file.suffix == '.txt':
+					mask_name = data_file.name.split('.')[0] + '.*.medial_cut_mask.keep.txt'
+					mask_dir = masks_dir / subj_dir.name
+					mask = next(mask_dir.glob(mask_name))
+					sp.run(['vertstats_math', '-old_style_file', data_file, '-mult', mask, output_file])
+				else:
+					shutil.copy(data_file, output_file)
+
+
 rule fit_innersp_surface_figures:
-	input: "_innersp_surface_and_smtherr"
-	output: directory("innersp_surface_figures")
+	input: "innersp_data_masked"
+	output: report(directory("innersp_surface_figures"), patterns=["{name}.png"], category="Inner Subplate Surface Fitting QC")
 	container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"
 	shell:
 		"surfigures --range '.disterr.txt:-2.0:2.0,.disterr.abs.txt:0.0:2.0,.smtherr.txt:0.0:2.0' {input} {output}"
