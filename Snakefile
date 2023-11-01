@@ -117,7 +117,7 @@ rule join__innersp_chamfer_and_outerp_surface:
 rule fit_innersp_surface:
 	input: "_inputs_for_innersp_surface"
 	output: directory("innersp_surface")
-	container: "docker://ghcr.io/fnndsc/pl-gifit:0.1.0"
+	container: "docker://ghcr.io/fnndsc/pl-gifit:0.2.0"
 	threads: workflow.cores
 	shell:
 		"gifit --threads {threads} {input} {output}"
@@ -168,8 +168,7 @@ rule join__innersp_smtherr_and_surfaces:
 		os.mkdir(output[0])
 		for input_dir in map(Path, input):
 			input_files = filter(lambda p: p.is_file() and not p.name.startswith('.'), input_dir.rglob('*'))
-			filtered_files = filter(lambda p: '.gi.' not in p.name, input_files)
-			for input_file in filtered_files:
+			for input_file in input_files:
 				rel = input_file.relative_to(input_dir)
 				output_file = Path(output[0]) / rel
 				output_file.parent.mkdir(parents=True, exist_ok=True)
