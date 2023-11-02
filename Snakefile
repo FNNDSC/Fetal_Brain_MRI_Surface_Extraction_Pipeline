@@ -65,14 +65,14 @@ rule extract_wm_masks:
 	output: directory("wm_mask")
 	container: "docker://ghcr.io/fnndsc/pl-nums2mask:2.0.0"
 	shell:
-		"nums2mask --mask 'lh.wm.mnc:161,5 rh.wm.mnc:160,4' {input} {output}"
+		"nums2mask --mask 'lh.wm.mnc:160,4 rh.wm.mnc:161,5' {input} {output}"
 
 rule extract_innersp_masks:
 	input: "minc"
 	output: directory("innersp_mask")
 	container: "docker://ghcr.io/fnndsc/pl-nums2mask:2.0.0"
 	shell:
-		"nums2mask --mask 'lh.innersp.mnc:161 rh.innersp.mnc:160' {input} {output}"
+		"nums2mask --mask 'lh.innersp.mnc:160 rh.innersp.mnc:161' {input} {output}"
 
 # White matter surface extraction
 # --------------------------------------------------------------------------------

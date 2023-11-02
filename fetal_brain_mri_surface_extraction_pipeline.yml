@@ -27,7 +27,7 @@ plugin_tree:
   previous: "Convert NIFTI to MINC"
   plugin: pl-nums2mask v2.0.0
   plugin_parameter_defaults:
-    mask: "lh.wm.mnc:161,5 rh.wm.mnc:160,4"
+    mask: "lh.wm.mnc:160,4 rh.wm.mnc:161,5"
 - title: "WM surface extraction (CIVET marching-cubes algorithm)"
   previous: "Extract WM masks for left and right hemispheres"
   plugin: pl-fetal-surface-extract v2.0.2
