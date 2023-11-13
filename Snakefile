@@ -44,7 +44,7 @@ rule move_volumes_to_subject_dir:
 	output: directory("subjects")
 	container: "docker://ghcr.io/fnndsc/pl-bulk-rename:0.1.2"
 	shell:
-		"mkdir '{output}' && bulkrename --filter '.*_nuc_deep_subplate_dilate\.nii' --expression '(.*)_nuc_deep_subplate_dilate\.nii' --replace '$1/labels.nii' {input} {output}"
+		"mkdir '{output}' && bulkrename --filter '.*_nuc_deep_subplate_dilate\.nii$' --expression '(.*)_nuc_deep_subplate_dilate\.nii' --replace '$1/labels.nii' {input} {output}"
 
 rule convert_nifti_to_minc:
 	input: "subjects"
