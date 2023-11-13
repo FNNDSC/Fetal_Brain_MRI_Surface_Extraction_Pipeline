@@ -82,6 +82,7 @@ rule extract_outersp_surface:
 	input: "wm_mask"
 	output: directory("outersp_surface")
 	container: "docker://ghcr.io/fnndsc/pl-fetal-surface-extract:2.1.0"
+	threads: workflow.cores
 	shell:
 		"extract_cp -J {threads} --target-smoothness 0.13 {input} {output}"
 
