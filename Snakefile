@@ -122,23 +122,6 @@ rule fit_innersp_surface:
 	shell:
 		"gifit --threads {threads} {input} {output}"
 
-# Outer SP surface extraction QC figures
-# --------------------------------------------------------------------------------
-
-rule abs_disterr:
-	input: "outersp_surface"
-	output: directory("_outersp_surface_with_abs")
-	container: "docker://ghcr.io/fnndsc/pl-abs:1.0.1"
-	shell:
-		"abs --input-files .disterr.txt --copy --output-suffix abs.txt {input} {output}"
-
-rule extract_outersp_surface_figures:
-	input: "_outersp_surface_with_abs"
-	output: report(directory("outersp_surface_figures"), patterns=["{name}.png"], category="Outer Subplate Surface Extraction QC")
-	container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"
-	shell:
-		"surfigures --range '.disterr.txt:-2.0:2.0,.disterr.abs.txt:0.0:2.0,.smtherr.txt:0.0:2.0' {input} {output}"
-
 # Medial cut surface mask registration to outer SP surface
 # --------------------------------------------------------------------------------
 
@@ -210,9 +193,54 @@ rule mask_innersp_data:
 					shutil.copy(data_file, output_file)
 
 
+# Quality Control figure generation
+# --------------------------------------------------------------------------------
+
+rule abs_disterr:
+	input: "outersp_surface"
+	output: directory("_outersp_surface_with_abs")
+	container: "docker://ghcr.io/fnndsc/pl-abs:1.0.1"
+	shell:
+		"abs --input-files .disterr.txt --copy --output-suffix abs.txt {input} {output}"
+
+rule extract_outersp_surface_figures:
+	input: "_outersp_surface_with_abs"
+	output: report(directory("outersp_surface_figures"), patterns=["{name}.png"], category="Outer Subplate Surface Extraction QC")
+	container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"
+	shell:
+		"surfigures --range '.disterr.txt:-2.0:2.0,.disterr.abs.txt:0.0:2.0,.smtherr.txt:0.0:2.0' {input} {output}"
+
 rule fit_innersp_surface_figures:
 	input: "innersp_data_masked"
 	output: report(directory("innersp_surface_figures"), patterns=["{name}.png"], category="Inner Subplate Surface Fitting QC")
 	container: "docker://ghcr.io/fnndsc/pl-surfigures:1.2.0"
 	shell:
 		"surfigures --range '.disterr.txt:-2.0:2.0,.disterr.abs.txt:0.0:2.0,.smtherr.txt:0.0:2.0' {input} {output}"
+
+
+# Conversion to MZ3 format for visualization
+# --------------------------------------------------------------------------------
+rule join__all:
+	input: "outersp_surface", "innersp_data_masked", "innersp_mask", "wm_mask"
+	output: directory("all_mni")
+	run:
+		import os, glob
+		from pathlib import Path
+		os.mkdir(output[0])
+		for input_dir in map(Path, input):
+			input_files = filter(lambda p: p.is_file() and not p.name.startswith('.'), input_dir.rglob('*'))
+			for input_file in input_files:
+				rel = input_file.relative_to(input_dir)
+				output_file = Path(output[0]) / rel
+				output_file.parent.mkdir(parents=True, exist_ok=True)
+				parents = ('..' for _ in rel.parts)
+				target = os.path.join(*(*parents, input_dir.name, rel))
+				output_file.symlink_to(target)
+
+rule convert_mni2common:
+	input: "all_mni"
+	output: directory("all_niftiandmz3")
+	container: "docker://ghcr.io/fnndsc/pl-mni2common:1.0.0"
+	threads: workflow.cores
+	shell:
+		"mni2common -J {threads} {input} {output}"
