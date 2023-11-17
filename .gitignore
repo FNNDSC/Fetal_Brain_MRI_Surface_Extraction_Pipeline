@@ -1,1 +1,26 @@
-/.snakemake
+.idea
+
+.snakemake
+
+# All outputs of the snakemake pipeline, which can be obtained by running
+#
+#     grep -F 'output:' Snakefile | grep -oP '(?<=directory\(").+?(?=")' >> .gitignore
+
+subjects
+minc
+wm_mask
+innersp_mask
+outersp_surface
+_innersp_chamfer
+_inputs_for_innersp_surface
+innersp_surface
+medial_cut_mask
+innersp_smtherr
+_innersp_surface_and_smtherr
+_medial_cut_mask_neg
+innersp_data_masked
+_outersp_surface_with_abs
+outersp_surface_figures
+innersp_surface_figures
+all_mni
+all_niftiandmz3
