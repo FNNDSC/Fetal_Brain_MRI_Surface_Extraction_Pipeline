@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import AppLayout from "./AppLayout";
 import SubplateSurfaces from "./SubplateSurfaces";
-import {Client, Subject} from "./client";
+import { Client, Subject } from "./client";
 import "./style.css";
 
 export function App() {
@@ -49,7 +49,7 @@ export function App() {
       selectedSubject={selectedSubject}
       onSubjectSelect={setSelectedSubject}
     >
-      <SubplateSurfaces />
+      {/*<SubplateSurfaces />*/}
     </AppLayout>
   );
 }

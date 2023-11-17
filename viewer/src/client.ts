@@ -12,6 +12,9 @@ const VOLUME_FILE_EXTENSIONS = [".nii", ".nii.gz"];
 const SURFACE_OVERLAY_RE = /.+\.(disterr|smtherr|tlink_\d+mm)\.mz3/;
 const SURFACE_FILE_EXTENSION = [".mz3"];
 
+// Column names used by Marisol to indicate subject name, in order of precedence.
+const SUBJECT_COLUMN_NAMES = ["BCH_number", "Anon_number", "MRN"];
+
 type HemiUrls = {
   volumes: string[];
   surfaces: string[];
@@ -24,17 +27,10 @@ type SubjectUrls = {
   right: HemiUrls;
 };
 
-type SubjectInfo = {
-  mrn?: string;
-  age?: number;
-  extraInfo?: string;
-  segmentedBy?: string;
-  comments?: string;
-};
-
 type Subject = {
   name: string;
-  info?: SubjectInfo;
+  info?: any;
+  age?: number;
 };
 
 /**
@@ -82,18 +78,19 @@ class Client {
       });
     }
     const csvData = await fetchCsv(this.baseUrl + csvFileName);
+    csvData.forEach(mutNormalizeCsvData);
 
-    return subjectNames.map((name) => {
-      const data = csvData.find((row) => row.subject.trim() === name);
-      const info: SubjectInfo = {
-        mrn: data['MRN'],
-        age: data['Age'],
-        extraInfo: data['Extra_info'],
-        segmentedBy: data['Segmented by'],
-        comments: data['Comments'],
-      };
-      return {name, info};
-    }).sort(subjectSortComparer);
+    return subjectNames
+      .map((name) => {
+        const info = csvData.find(
+          (row) => row.subject && row.subject.trim() === name,
+        );
+        if (info === undefined) {
+          return { name };
+        }
+        return { name, info, age: info.age };
+      })
+      .sort(subjectSortComparer);
   }
 
   /**
@@ -118,13 +115,48 @@ class Client {
 async function fetchCsv(url: string): Promise<any[]> {
   const csvRes = await fetch(url);
   const csvString = await csvRes.text();
-  const parseResult = Papa.parse(csvString.trimEnd(), {header: true});
+  const parseResult = Papa.parse(csvString.trimEnd(), { header: true });
   if (parseResult.errors.length > 0) {
-    console.error("Failed to parse CSV from " + url);
+    console.error(`Failed to parse CSV from ${url}`);
     console.dir(parseResult.errors);
     throw Error(parseResult.errors);
   }
   return parseResult.data;
+}
+
+/**
+ * Mutates the object in the following ways:
+ *
+ * - if "age" can be parsed as float, do so, and rename the key to lowercase.
+ * - if "subject" is not a key, then create a value for it based on the value from other columns.
+ */
+function mutNormalizeCsvData(data: any): any {
+  const ageKey = Object.keys(data).find((k) => k.toLowerCase() === "age");
+  const ageAsFloat = parseFloat(data[ageKey]);
+  if (!Number.isNaN(ageAsFloat)) {
+    data.age = ageAsFloat;
+    if (ageKey !== "age") {
+      delete data[ageKey];
+    }
+  }
+
+  const subjectKey = Object.keys(data).find(
+    (k) => k.toLowerCase() === "subject",
+  );
+  if (subjectKey) {
+    if (subjectKey !== "subject") {
+      data.subject = data[subjectKey];
+      delete data[subjectKey];
+    }
+    return;
+  }
+
+  for (const columnName of SUBJECT_COLUMN_NAMES) {
+    if (data[columnName]) {
+      data.subject = data[columnName];
+      break;
+    }
+  }
 }
 
 function trimTrailingSlash(name: string): string {
@@ -169,7 +201,7 @@ function addUrlToFileNames(
   baseUrl: string,
   subject: string,
 ): HemiUrls {
-  const createUrl = (name) => baseUrl + subject + "/" + name;
+  const createUrl = (name) => `${baseUrl + subject}/${name}`;
   return {
     volumes: names.volumes.map(createUrl),
     surfaces: names.surfaces.map(createUrl),
@@ -182,25 +214,25 @@ function addUrlToFileNames(
  * Helper function for sorting subjects by age.
  */
 function subjectSortComparer(a: Subject, b: Subject): number {
-  if (a.info && a.info.age) {
-    if (b.info && b.info.age) {
+  if (typeof a.age === "number") {
+    if (typeof b.age === "number") {
       // same age
-      if (a.info.age === b.info.age) {
+      if (a.age === b.age) {
         return a.name.localeCompare(b.name);
       }
       // different age
-      return a.info.age - b.info.age;
+      return a.age - b.age;
     } else {
       // b age unknown
       return 1;
     }
   }
   // a age unknown
-  if (b.info && b.info.age > 0) {
+  if (b.info && b.age > 0) {
     return -1;
   }
   // both age unknown
   return a.name.localeCompare(b.name);
 }
 
-export { HemiUrls, SubjectUrls, Subject, SubjectInfo, Client };
+export { HemiUrls, SubjectUrls, Subject, Client };

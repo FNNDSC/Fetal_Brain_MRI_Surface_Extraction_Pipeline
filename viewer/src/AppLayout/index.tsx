@@ -22,7 +22,7 @@ import {
 } from "@patternfly/react-core";
 import BarsIcon from "@patternfly/react-icons/dist/esm/icons/bars-icon";
 import * as React from "preact/compat";
-import {Subject} from "../client";
+import { Subject } from "../client";
 
 const SubjectDropdown = ({
   subjects,
@@ -76,7 +76,8 @@ const SubjectDropdown = ({
             <DropdownItem
               value={subject.name}
               key={subject.name}
-              description={`age: ${ageOf(subject)}`}>
+              description={`age: ${ageOf(subject)}`}
+            >
               {subject.name}
             </DropdownItem>
           ))}
@@ -87,10 +88,13 @@ const SubjectDropdown = ({
 };
 
 function ageOf(subject: Subject): string {
-  if (subject.info && subject.info.age) {
-    return subject.info.age + 'GA';
+  if (!subject.info) {
+    return "unknown";
   }
-  return "unknown"
+  const ageKey = Object.keys(subject.info).find(
+    (k) => k.toLowerCase() === "age",
+  );
+  return `${subject.info[ageKey]}`;
 }
 
 const MyPage = ({
@@ -101,7 +105,7 @@ const MyPage = ({
 }: {
   subjects?: Subject[];
   selectedSubject?: Subject;
-  onSubjectSelect: (value) => any;
+  onSubjectSelect: (value) => void;
   children: ComponentChildren;
 }) => {
   const headerToolbar = (
