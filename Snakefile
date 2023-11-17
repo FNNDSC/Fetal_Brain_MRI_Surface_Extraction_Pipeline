@@ -117,7 +117,7 @@ rule join__innersp_chamfer_and_outerp_surface:
 rule fit_innersp_surface:
 	input: "_inputs_for_innersp_surface"
 	output: directory("innersp_surface")
-	container: "docker://ghcr.io/fnndsc/pl-gifit:0.2.0"
+	container: "docker://ghcr.io/fnndsc/pl-gifit:0.2.1"
 	threads: workflow.cores
 	shell:
 		"gifit --threads {threads} {input} {output}"
