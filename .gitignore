@@ -2,6 +2,8 @@
 
 .snakemake
 
+segmentations
+
 # All outputs of the snakemake pipeline, which can be obtained by running
 #
 #     grep -F 'output:' Snakefile | grep -oP '(?<=directory\(").+?(?=")' >> .gitignore

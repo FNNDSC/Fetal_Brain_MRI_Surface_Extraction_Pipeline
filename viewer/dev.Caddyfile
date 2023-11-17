@@ -1,0 +1,9 @@
+:51733 {
+    handle_path /files/* {
+        root * ../all_niftiandmz3
+        file_server * browse
+    }
+    handle {
+        reverse_proxy localhost:5173
+    }
+}
